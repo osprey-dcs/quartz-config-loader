@@ -62,9 +62,9 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
-    "CUSTNAME": {
+    "CUSTNAM": {
         "type": "str",  # Full Channel Name with Customer-requested designator
-        "pattern": record_pattern,
+        "pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:NAME",
         "pv_names": [],
         "pv_values": [],
     },
@@ -74,10 +74,30 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
-    # IDLINE5 str
-    # RESPNODE str
-    # REPDIR str
-    # SPECDATATYP str
+    "IDLINE5": {
+        "type": "str",  # UFF58 ID Line 5
+        "pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:DESC5",
+        "pv_names": [],
+        "pv_values": [],
+    },
+    "RESPNODE": {
+        "type": "int",  # UFF58 ID Line 6, field 6
+        "pattern": record_pattern,
+        "pv_names": [],
+        "pv_values": [],
+    },
+    #"RESPDIR": {
+        #"type": "str",  # UFF58 ID Line 6, field 6
+        #"pattern": record_pattern,
+        #"pv_names": [],
+        #"pv_values": [],
+    #},
+    #"SPECDATATYP": {
+        #"type": "int",  # UFF58 ID Line 6, field 6
+        #"pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:SDTYP",
+        #"pv_names": [],
+        #"pv_values": [],
+    #},
     "EGU": {
         "type": "str",
         "pattern": record_pattern,
@@ -197,9 +217,9 @@ def convert_value(description, val, domain_type: str):
     if val is None or len(val) == 0:
         return None
     elif domain_type == "int":
-        return int(val)
+        return 0 if val.upper()=='NONE' else int(val)
     elif domain_type == "str":
-        return str(val)
+        return str(val).strip()
     elif domain_type == "float":
         return float(val)
     elif domain_type == "bool":
@@ -230,11 +250,7 @@ def revert_value(val, domain_type: str):
     if val is None:
         ret = ""
     elif domain_type == "bool":
-        val = bool(val)
-        if val == 1:
-            ret = "Yes"
-        elif val == 0:
-            ret = "No"
+        return "Yes" if val else "No"
     else:
         ret = str(val)
 
@@ -345,7 +361,11 @@ for domain in records_dict:
             #list(zip(records_dict [domain]["pv_names"], records_dict[domain]["pv_values"]))
         #)
     #)
-    ctxt.put(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
+    try:
+        ctxt.put(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
+    except:
+        logging.exception('While PUTing %s', domain)
+        raise
 
 logging.info("Write output configuration file")
 fieldnames = output_table[0].keys()
