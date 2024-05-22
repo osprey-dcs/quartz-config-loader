@@ -6,9 +6,6 @@ import os
 
 from p4p.client.thread import Context
 
-# TODO: convert records_dict to an OrderedDict?
-# TODO: write PVs in batches put(array, array)
-
 """Reads the CCCR Configuration csv file.
 
     Input
@@ -24,6 +21,13 @@ from p4p.client.thread import Context
     CCCR Output File
         A csv of the values that were used to _put_ into the EPICS DB
 """
+
+# TODO: check for CUSTNAME duplicates
+# TODO: get values -> output table
+# TODO: ignore cells with NONE or blanks
+# TODO: validate input against domain type and raise exceptions
+# TODO: update CSV (IDLINE5 -> DESC5, SPECDATATYP -> SDTYP)
+# TODO: differentiate between debugging and info to print
 
 record_pattern = "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:<DOMAIN>"
 alarm_pattern = "FDAS:<CHASSIS>:ACQ:<DOMAIN>:<CHANNEL>"
@@ -55,6 +59,8 @@ name_dict = {
     },
     # CUSTNAM str
 }
+
+# The default valid_input must be the first element of the list
 records_dict = {
     "USE": {
         "type": "bool",  # EPICS:enum [Yes, No]
@@ -64,7 +70,7 @@ records_dict = {
     },
     "CUSTNAM": {
         "type": "str",  # Full Channel Name with Customer-requested designator
-        "pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:NAME",
+        "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
@@ -76,7 +82,7 @@ records_dict = {
     },
     "IDLINE5": {
         "type": "str",  # UFF58 ID Line 5
-        "pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:DESC5",
+        "pattern": record_pattern.replace("<DOMAIN>", "DESC5"),
         "pv_names": [],
         "pv_values": [],
     },
@@ -86,18 +92,51 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
-    #"RESPDIR": {
-        #"type": "str",  # UFF58 ID Line 6, field 6
-        #"pattern": record_pattern,
-        #"pv_names": [],
-        #"pv_values": [],
-    #},
-    #"SPECDATATYP": {
-        #"type": "int",  # UFF58 ID Line 6, field 6
-        #"pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:SDTYP",
-        #"pv_names": [],
-        #"pv_values": [],
-    #},
+    "RESPDIR": {
+        "type": "str",  # UFF58 ID Line 6, field 6
+        "pattern": record_pattern,
+        "valid_input": [
+            "Scalar",  # default
+            "+X Translation",
+            "+Y Translation",
+            "+Z Translation",
+            "-X Translation",
+            "-Y Translation",
+            "-Z Translation",
+            "+X Rotation",
+            "+Y Rotation",
+            "+Z Rotation",
+            "-X Rotation",
+            "-Y Rotation",
+            "-Z Rotation",
+        ],
+        "pv_names": [],
+        "pv_values": [],
+    },
+    "SPECDATATYP": {
+        "type": "str",  # UFF58 ID Line 6, field 6
+        "pattern": record_pattern.replace("<DOMAIN>", "SDTYP"),
+        "valid_input": [
+            "unknown",  # default value
+            "general",
+            "stress",
+            "strain",
+            "temperature",
+            "heat flux",
+            "displacement",
+            "reaction force",
+            "velocity",
+            "acceleration",
+            "excitation force",
+            "pressure",
+            "mass",
+            "time",
+            "frequency",
+            "rpm",
+        ],
+        "pv_names": [],
+        "pv_values": [],
+    },
     "EGU": {
         "type": "str",
         "pattern": record_pattern,
@@ -143,17 +182,14 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
-    #"COUPLING": {
-        #"type": "str",  # EPICS:enum [AC, DC]
-        #"pattern": record_pattern,
-        #"pv_names": [],
-        #"pv_values": [],
-    #},
+    # "COUPLING": {
+    # "type": "str",  # EPICS:enum [AC, DC]
+    # "pattern": record_pattern,
+    # "pv_names": [],
+    # "pv_values": [],
+    # },
     # CONFIGTIMEID str
 }
-
-# Global PVs to write CCCR.csv filename, and input_hash
-# TODO copy the input_csv to a separate directory (need destination from Davdisaver)
 
 domains = list(records_dict.keys())
 
@@ -196,6 +232,7 @@ def get_input_arguments():
 
 def convert_value(description, val, domain_type: str):
     """Converts the data type of the given value based on the record's domain's type.
+    Specifically designed
 
     params
     ----------
@@ -213,21 +250,45 @@ def convert_value(description, val, domain_type: str):
     val : [integer, string, float, boolean]
         Returned value of new data type according to the list available
     """
-    # logging.info("Converting {} to {}".format(description, domain))
+    logging.debug(f"Converting {description} to {domain_type}")
     if val is None or len(val) == 0:
         return None
     elif domain_type == "int":
-        return 0 if val.upper()=='NONE' else int(val)
+        return 0 if val.upper() == "NONE" else int(val)
     elif domain_type == "str":
         return str(val).strip()
     elif domain_type == "float":
-        return float(val)
+        return 0 if val.upper() == "NONE" else float(val)
     elif domain_type == "bool":
         if val.lower() == "yes":
             return "Yes"
         elif val.lower() == "no":
             return "No"
     raise ValueError("Record is not within the scope of configurator")
+
+
+def verify_input(description: str, val: str, valid_inputs: list):
+    """Verifies the given input data is within the valid input list, if there is one.
+
+    params
+    ----------
+    description : str
+        User provided name to alert of value mismatch
+
+    val : str
+        String value from the CCCR to check
+
+    valid_inputs : list
+        List of valid inputs
+
+    returns
+    -------
+    val : str
+        Matching valid input
+    """
+
+    valid_value = [option.lower() for option in valid_inputs if val == option.lower()]
+    return valid_value[0] if valid_value else valid_inputs[0]
 
 
 def revert_value(val, domain_type: str):
@@ -266,11 +327,14 @@ if args.verbose:
     logging.basicConfig(
         format="%(levelname)s: %(asctime)s - %(message)s", level=logging.DEBUG
     )
-    logging.info("Verbose output.")
+    logging.info("Verbose output")
 else:
     logging.basicConfig(format="%(levelname)s: %(message)s")
 
-logging.info("Arguments:{}".format(args))
+logging.info("Arguments: {}".format(args.__dict__))
+logging.debug(
+    f"Input filepath {args.input_filepath}; string: {isinstance(args.input_filepath, str)}"
+)
 
 if args.test:
     logging.info("Entering test mode")
@@ -285,9 +349,9 @@ elif args.input_filepath is None:
 
 else:
     if not os.path.exists(args.input_filepath):
-        raise FileNotFoundError("File {} not found".format(args.input_filepath))
+        raise FileNotFoundError(f"File {args.input_filepath} not found")
     elif not os.path.isdir(args.output_path):
-        raise FileNotFoundError("Path {} not found".format(args.output_path))
+        raise FileNotFoundError(f"Path {args.output_path} not found")
     else:
         configuration["input_fp"] = args.input_filepath
         configuration["output_fp"] = args.output_path + "/output.csv"
@@ -300,10 +364,9 @@ logging.info("Alarm pattern: {}".format(alarm_pattern))
 
 output_table = []
 
-# TODO: check for CUSTNAME duplicates
-
 """Open the input filepath, read it, convert the values, and append the new row
 to the output file."""
+logging.info("Convert values to accepted datatypes and format")
 with open(configuration["input_fp"], newline="") as configuration_csv:
     configuration_table = csv.DictReader(configuration_csv)
     # headers = configuration_table.keys()
@@ -318,11 +381,17 @@ with open(configuration["input_fp"], newline="") as configuration_csv:
                     value,
                     records_dict[key]["type"],
                 )
+                if "valid_input" in records_dict[key]:
+                    value = verify_input(
+                        channel_desc + ":" + key,
+                        value,
+                        records_dict[key]["valid_input"],
+                    )
                 row[key] = value
         output_table.append(row)
 
 
-#logging.info("Output table ({}): {}".format(type(output_table), output_table))
+# logging.info("Output table ({}): {}".format(type(output_table), output_table))
 
 """Using output table (with converted values), traverse. Construct channel names and
 append domains from the headers to construct signal names. Use signal names and values
@@ -330,7 +399,7 @@ to put into EPICS DB. Revert the value to string within the output."""
 logging.info("Begin configuration put to database")
 ctxt = Context("pva")
 for row in output_table:
-    if row["USE"].lower()=="yes":
+    if row["USE"].lower() == "yes":
         for key, value in row.items():
             if key in domains:
                 pv_name = str(
@@ -343,11 +412,12 @@ for row in output_table:
                 records_dict[key]["pv_values"].append(value)
                 row[key] = revert_value(value, records_dict[key]["type"])
     elif row["USE"].lower() == "no":
+        # pass
         pv_name = str(
-                    records_dict["USE"]["pattern"]
-                    .replace("<CHASSIS>", "{:02d}".format(int(row["CHASSIS"])))
-                    .replace("<CHANNEL>", "{:02d}".format(int(row["CHANNEL"])))
-                ).replace("<DOMAIN>", "USE")
+            records_dict["USE"]["pattern"]
+            .replace("<CHASSIS>", "{:02d}".format(int(row["CHASSIS"])))
+            .replace("<CHANNEL>", "{:02d}".format(int(row["CHANNEL"])))
+        ).replace("<DOMAIN>", "USE")
         records_dict["USE"]["pv_names"].append(pv_name)
         records_dict["USE"]["pv_values"].append("No")
     else:
@@ -355,21 +425,23 @@ for row in output_table:
 
 
 for domain in records_dict:
-    #logging.info(
-        #"Putting {}...\n {}".format(
-            #domain,
-            #list(zip(records_dict [domain]["pv_names"], records_dict[domain]["pv_values"]))
-        #)
-    #)
+    logging.debug(
+        "Putting {}...\n {}".format(
+            domain,
+            list(
+                zip(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
+            ),
+        )
+    )
     try:
         ctxt.put(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
     except:
-        logging.exception('While PUTing %s', domain)
+        logging.exception("While putting %s", domain)
         raise
 
 logging.info("Write output configuration file")
 fieldnames = output_table[0].keys()
-logging.info(f'{fieldnames}')
+logging.info(f"{fieldnames}")
 with open(configuration["output_fp"], "w", newline="") as output_file:
     writer = csv.DictWriter(output_file, fieldnames=fieldnames)
     writer.writeheader()
@@ -418,14 +490,14 @@ input_hash = hashfile(configuration["input_fp"])
 output_hash = hashfile(configuration["output_fp"])
 
 # Doing string comparison to check whether the two hashes match or not
-#if input_hash == output_hash:
-    #print("Both files are same")
-    #print(f"Hash: {input_hash}")
+# if input_hash == output_hash:
+# print("Both files are same")
+# print(f"Hash: {input_hash}")
 
-#else:
-    #print("Files are different!")
-    #print(f"Hash of Input: {input_hash}")
-    #print(f"Hash of Output: {output_hash}")
+# else:
+# print("Files are different!")
+# print(f"Hash of Input: {input_hash}")
+# print(f"Hash of Output: {output_hash}")
 
 
 # Function to compare two CSV files
@@ -460,6 +532,6 @@ def compare(file1, file2):
 
 
 # Call the compare_csv_files function and store the differences
-#differences = compare(configuration["input_fp"], configuration["output_fp"])
-#for diff in differences:
-    #print(f"Difference found: {diff}")
+# differences = compare(configuration["input_fp"], configuration["output_fp"])
+# for diff in differences:
+# print(f"Difference found: {diff}")
