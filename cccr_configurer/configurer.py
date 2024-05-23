@@ -1,6 +1,5 @@
 import argparse
 import csv
-import hashlib
 import logging
 import os
 
@@ -31,49 +30,58 @@ from p4p.client.thread import Context
 
 record_pattern = "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:<DOMAIN>"
 alarm_pattern = "FDAS:<CHASSIS>:ACQ:<DOMAIN>:<CHANNEL>"
+filename_record = "FDAS:SA:FILE"
 
 name_dict = {
+    # Overall System CH #
     "SIGNAL": {
         "type": "int",
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Digitizer #
     "CHASSIS": {
         "type": "int",
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Digitizer Channel #
     "CHANNEL": {
         "type": "int",
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Digitizer Connector #
     "CONNECTOR": {
         "type": "str",  # [DB1, DB2]
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
-    # CUSTNAM str
 }
 
 # The default valid_input must be the first element of the list
+# These are columns in the CSV, which EPICS signal pattern they follow, valid inputs
+# and space for their ultimate pv names and values to put into runtime database
 records_dict = {
+    # Channel Use (Yes/No)
     "USE": {
         "type": "bool",  # EPICS:enum [Yes, No]
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Channel User Label
     "CUSTNAM": {
         "type": "str",  # Full Channel Name with Customer-requested designator
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Channel Description
     "DESC": {
         "type": "str",  # UFF58 ID Line 2
         "pattern": record_pattern,
@@ -92,32 +100,36 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
+    # Response Direction
     "RESPDIR": {
         "type": "str",  # UFF58 ID Line 6, field 6
         "pattern": record_pattern,
-        "valid_input": [
-            "Scalar",  # default
-            "+X Translation",
-            "+Y Translation",
-            "+Z Translation",
-            "-X Translation",
-            "-Y Translation",
-            "-Z Translation",
-            "+X Rotation",
-            "+Y Rotation",
-            "+Z Rotation",
-            "-X Rotation",
-            "-Y Rotation",
-            "-Z Rotation",
-        ],
+        "input_switch": {  # with mbbo values
+            "scalar": "Scalar",  # 0, default
+            "default": "Scalar",
+            "X+": "+X Translation",  # 1
+            "Y+": "+Y Translation",  # 2
+            "Z+": "+Z Translation",  # 3
+            "X-": "-X Translation",  # -1
+            "Y-": "-Y Translation",  # -2
+            "Z-": "-Z Translation",  # -3
+            "XR+": "+X Rotation",  # 4
+            "YR+": "+Y Rotation",  # 5
+            "ZR+": "+Z Rotation",  # 6
+            "XR-": "-X Rotation",  # -4
+            "YR-": "-Y Rotation",  # -5
+            "ZR-": "-Z Rotation",  # -6
+        },
+        # "valid_inputs": list(records_dict["RESPDIR"]["input_switch"].keys())
         "pv_names": [],
         "pv_values": [],
     },
+    # Specific Data Type Field
     "SPECDATATYP": {
         "type": "str",  # UFF58 ID Line 6, field 6
         "pattern": record_pattern.replace("<DOMAIN>", "SDTYP"),
         "valid_input": [
-            "unknown",  # default value
+            "unknown",  # 0, default value
             "general",
             "stress",
             "strain",
@@ -137,19 +149,23 @@ records_dict = {
         "pv_names": [],
         "pv_values": [],
     },
+    # Engineering Unit
     "EGU": {
         "type": "str",
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Custom Measurement Location
     # CUSTMEASLOC str
+    # Volts to EU slope
     "ESLO": {
         "type": "float",  # EGU/V
         "pattern": record_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Volts to EU offset
     "EOFF": {
         "type": "float",  # EGU
         "pattern": record_pattern,
@@ -158,36 +174,42 @@ records_dict = {
     },
     # MAXEULVL float
     # SAMPLPERSEC int
+    # Low Alarm Limit (in EU)
     "LOLOlim": {
         "type": "float",  # EGU
         "pattern": alarm_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Low Warning Level (in EU)
     "LOlim": {
         "type": "float",  # EGU
         "pattern": alarm_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # High Warning Level (in EU)
     "HIlim": {
         "type": "float",  # EGU
         "pattern": alarm_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # High Alarm Limit (in EU)
     "HIHIlim": {
         "type": "float",  # EGU
         "pattern": alarm_pattern,
         "pv_names": [],
         "pv_values": [],
     },
+    # Coupling (AC or DC)
     # "COUPLING": {
     # "type": "str",  # EPICS:enum [AC, DC]
     # "pattern": record_pattern,
     # "pv_names": [],
     # "pv_values": [],
     # },
+    # Configuration Timestamp
     # CONFIGTIMEID str
 }
 
@@ -230,7 +252,7 @@ def get_input_arguments():
     return parser.parse_args()
 
 
-def convert_value(description, val, domain_type: str):
+def convert_type(description, val, domain_type: str):
     """Converts the data type of the given value based on the record's domain's type.
     Specifically designed
 
@@ -267,8 +289,9 @@ def convert_value(description, val, domain_type: str):
     raise ValueError("Record is not within the scope of configurator")
 
 
-def verify_input(description: str, val: str, valid_inputs: list):
-    """Verifies the given input data is within the valid input list, if there is one.
+def verify_input(description: str, val: str, valid_inputs: list) -> str:
+    """Verifies the given input data is within the valid input list, otherwise returns
+    default.
 
     params
     ----------
@@ -283,12 +306,40 @@ def verify_input(description: str, val: str, valid_inputs: list):
 
     returns
     -------
-    val : str
-        Matching valid input
+    valid_value[0] : str
+        First matched valid input, or default valid input
     """
-
+    logging.debug(f"Verifying input for {description}")
     valid_value = [option.lower() for option in valid_inputs if val == option.lower()]
     return valid_value[0] if valid_value else valid_inputs[0]
+
+
+def apply_input_switch(description: str, val: str, input_switch: dict) -> str:
+    """Switches CSV input to EPICS DB input, if a switch exists for that domain.
+
+    params
+    ----------
+    description : str
+        User provided name to alert of value mismatch
+
+    val : str
+        String value from the CCCR to check
+
+    input_switch : dict
+        Input switch
+
+    returns
+    -------
+    switched_val : str
+        Value switched from CSV standard to EPICS DB standard
+    """
+    logging.debug(f"{input_switch}")
+    logging.debug(f"Applying input switch for {description}")
+    if val in list(input_switch.keys()):
+        switched_val = input_switch[val]
+    else:
+        switched_val = input_switch["default"]
+    return switched_val
 
 
 def revert_value(val, domain_type: str):
@@ -315,7 +366,7 @@ def revert_value(val, domain_type: str):
     else:
         ret = str(val)
 
-    # logging.info("{}:{} converted to {}".format(domain_type, val, ret))
+    # logging.info(f"{domain_type}:{val} converted to {ret}")
     return ret
 
 
@@ -331,7 +382,7 @@ if args.verbose:
 else:
     logging.basicConfig(format="%(levelname)s: %(message)s")
 
-logging.info("Arguments: {}".format(args.__dict__))
+logging.info(f"Arguments: {args.__dict__}")
 logging.debug(
     f"Input filepath {args.input_filepath}; string: {isinstance(args.input_filepath, str)}"
 )
@@ -356,11 +407,12 @@ else:
         configuration["input_fp"] = args.input_filepath
         configuration["output_fp"] = args.output_path + "/output.csv"
 
-logging.info("Input file: {}".format(configuration["input_fp"]))
-logging.info("Output file: {}".format(configuration["output_fp"]))
-logging.info("Domains to output: {}".format(domains))
-logging.info("Record pattern: {}".format(record_pattern))
-logging.info("Alarm pattern: {}".format(alarm_pattern))
+logging.info(f"{configuration}")
+logging.info(f"Input file: {configuration['input_fp']}")
+logging.info(f"Output file: {configuration['output_fp']}")
+logging.info(f"Domains to output: {domains}")
+logging.info(f"Record pattern: {record_pattern}")
+logging.info(f"Alarm pattern: {alarm_pattern}")
 
 output_table = []
 
@@ -375,8 +427,8 @@ with open(configuration["input_fp"], newline="") as configuration_csv:
     for row in configuration_table:
         channel_desc = row["DESC"]
         for key, value in row.items():
-            if key in domains:
-                value = convert_value(
+            if key in domains and row["USE"].lower() == "yes":
+                value = convert_type(
                     channel_desc + ":" + key,
                     value,
                     records_dict[key]["type"],
@@ -386,6 +438,12 @@ with open(configuration["input_fp"], newline="") as configuration_csv:
                         channel_desc + ":" + key,
                         value,
                         records_dict[key]["valid_input"],
+                    )
+                if "input_switch" in records_dict[key]:
+                    value = apply_input_switch(
+                        channel_desc + ":" + key,
+                        value,
+                        records_dict[key]["input_switch"],
                     )
                 row[key] = value
         output_table.append(row)
@@ -415,23 +473,18 @@ for row in output_table:
         # pass
         pv_name = str(
             records_dict["USE"]["pattern"]
-            .replace("<CHASSIS>", "{:02d}".format(int(row["CHASSIS"])))
-            .replace("<CHANNEL>", "{:02d}".format(int(row["CHANNEL"])))
+            .replace("<CHASSIS>", f"{int(row['CHASSIS']):02d}")
+            .replace("<CHANNEL>", f"{int(row['CHANNEL']):02d}")
         ).replace("<DOMAIN>", "USE")
         records_dict["USE"]["pv_names"].append(pv_name)
         records_dict["USE"]["pv_values"].append("No")
     else:
-        raise ValueError("Not among allowed values {}".format(row["USE"]))
+        raise ValueError(f"Not among allowed values {row['USE']}")
 
 
 for domain in records_dict:
     logging.debug(
-        "Putting {}...\n {}".format(
-            domain,
-            list(
-                zip(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
-            ),
-        )
+        f"Putting {domain}...\n {list(zip(records_dict[domain]['pv_names'], records_dict[domain]['pv_values']))}"
     )
     try:
         ctxt.put(records_dict[domain]["pv_names"], records_dict[domain]["pv_values"])
@@ -439,99 +492,14 @@ for domain in records_dict:
         logging.exception("While putting %s", domain)
         raise
 
+logging.debug(os.path.basename(configuration["input_fp"]))
+ctxt.put(filename_record, os.path.basename(configuration["input_fp"]))
+
 logging.info("Write output configuration file")
 fieldnames = output_table[0].keys()
-logging.info(f"{fieldnames}")
+logging.info(f"{list(fieldnames)}")
 with open(configuration["output_fp"], "w", newline="") as output_file:
     writer = csv.DictWriter(output_file, fieldnames=fieldnames)
     writer.writeheader()
     for row in output_table:
         writer.writerow(row)
-
-
-def hashfile(file):
-    """Creates hash string from file, passing data through buffer first.
-
-    params
-    ----------
-    file
-        File from which to create hash
-
-    returns
-    -------
-    string
-        String representation hash
-    """
-    # Arbitrary buffer size: 65536 bytes = 64 kilobytes
-    BUF_SIZE = 65536
-
-    # Initializing the sha256() method
-    sha256 = hashlib.sha256()
-
-    with open(file, "rb") as f:
-        while True:
-            # reading data = BUF_SIZE from the file and saving it in a variable
-            data = f.read(BUF_SIZE)
-
-            # True if eof = 1
-            if not data:
-                break
-
-            # Passing data to sha256 hash function
-            sha256.update(data)
-
-    # sha256.hexdigest() hashes all the input data hashing the data,
-    # and returns the output in hexadecimal format
-    return sha256.hexdigest()
-
-
-# Obtain hashes of files
-input_hash = hashfile(configuration["input_fp"])
-output_hash = hashfile(configuration["output_fp"])
-
-# Doing string comparison to check whether the two hashes match or not
-# if input_hash == output_hash:
-# print("Both files are same")
-# print(f"Hash: {input_hash}")
-
-# else:
-# print("Files are different!")
-# print(f"Hash of Input: {input_hash}")
-# print(f"Hash of Output: {output_hash}")
-
-
-# Function to compare two CSV files
-def compare(file1, file2):
-    """Compares two csv files by comparing each line as a string
-
-    params
-    ----------
-    file1, file2
-        Files to compare
-
-    returns
-    -------
-    list
-        List of strings of different rows
-    """
-    differences = []
-
-    # Open both CSV files in read mode
-    with open(file1, "r") as csv_file1, open(file2, "r") as csv_file2:
-        reader1 = csv.reader(csv_file1)
-        reader2 = csv.reader(csv_file2)
-
-        # Iterate over rows in both files simultaneously
-        for row1, row2 in zip(reader1, reader2):
-            # for val1, val2 in zip(row1, row2):
-            #     print(f"{val1}=={val2} :" + str((val1 == val2)))
-            if row1 != row2:
-                differences.append((row1, row2))
-
-    return differences
-
-
-# Call the compare_csv_files function and store the differences
-# differences = compare(configuration["input_fp"], configuration["output_fp"])
-# for diff in differences:
-# print(f"Difference found: {diff}")
