@@ -77,7 +77,7 @@ records_dict = {
     # Channel User Label
     "CUSTNAM": {
         "type": "str",  # Full Channel Name with Customer-requested designator
-        "pattern": record_pattern,
+        "pattern": "FDAS:<CHASSIS>:SA:Ch<CHANNEL>:NAME",
         "pv_names": [],
         "pv_values": [],
     },
