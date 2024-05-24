@@ -407,7 +407,9 @@ else:
         configuration["input_fp"] = args.input_filepath
         configuration["output_fp"] = args.output_path + "/output.csv"
 
-logging.info(f"{configuration}")
+input_fn_with_ext = os.path.basename(configuration["input_fp"])
+inputfn, inputfn_ext = os.path.splitext(input_fn_with_ext)
+configuration["filename"] = inputfn
 logging.info(f"Input file: {configuration['input_fp']}")
 logging.info(f"Output file: {configuration['output_fp']}")
 logging.info(f"Domains to output: {domains}")
@@ -492,8 +494,8 @@ for domain in records_dict:
         logging.exception("While putting %s", domain)
         raise
 
-logging.debug(os.path.basename(configuration["input_fp"]))
-ctxt.put(filename_record, os.path.basename(configuration["input_fp"]))
+logging.debug(os.path.basename(configuration["filename"]))
+ctxt.put(filename_record, os.path.basename(configuration["filename"]))
 
 logging.info("Write output configuration file")
 fieldnames = output_table[0].keys()
