@@ -66,7 +66,7 @@ async def amain(args):
                 raise ValueError('CCCR name too short')
             fname = T
             fname_who = op.account()
-            pv.post(T, timestamp=time.time())
+            pv.post(T, timestamp=time.time(), severity=0)
             _log.debug('Set CCCR filename %r by %r', fname, fname_who)
         op.done()
 
@@ -142,20 +142,20 @@ async def amain(args):
 
                 # TODO: do something with output.csv
 
-            pv_content.post(cont, timestamp=now)
-            pv_message.post('Success', timestamp=now)
-            pv_status.post(1, timestamp=now)
+            pv_content.post(cont, timestamp=now, severity=0)
+            pv_message.post('Success', timestamp=now, severity=0)
+            pv_status.post(1, timestamp=now, severity=0)
             op.done() # notify of success
         except asyncio.CancelledError as e:
             op.done(error=str(e))
-            pv_message.post('Cancel', timestamp=now)
-            pv_status.post(0, timestamp=now)
+            pv_message.post('Cancel', timestamp=now, severity=2)
+            pv_status.post(0, timestamp=now, severity=2)
             raise
         except Exception as e:
             _log.exception('oops')
             op.done(error=str(e))
-            pv_message.post(str(e), timestamp=now)
-            pv_status.post(0, timestamp=now)
+            pv_message.post(str(e), timestamp=now, severity=2)
+            pv_status.post(0, timestamp=now, severity=2)
         finally:
             busy, fname, fname_who = False, None, None
             pv_busy.post(0, timestamp=now)
