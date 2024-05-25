@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Saved on 2024-05-25 14:52:33 by dev-->
+<display version="2.0.0">
+  <name>CCCR</name>
+  <macros>
+    <P>FDAS:</P>
+  </macros>
+  <widget type="label" version="2.0.0">
+    <name>Label</name>
+    <class>TITLE</class>
+    <text>CCCR Upload</text>
+    <x use_class="true">0</x>
+    <y use_class="true">0</y>
+    <width>550</width>
+    <height>31</height>
+    <font use_class="true">
+      <font name="Header 1" family="Liberation Sans" style="BOLD" size="22.0">
+      </font>
+    </font>
+    <foreground_color use_class="true">
+      <color name="Text" red="0" green="0" blue="0">
+      </color>
+    </foreground_color>
+    <transparent use_class="true">true</transparent>
+  </widget>
+  <widget type="fileselector" version="2.0.0">
+    <name>File Selector</name>
+    <pv_name>loc://cccr$(DID)("")</pv_name>
+    <x>60</x>
+    <y>80</y>
+    <height>30</height>
+  </widget>
+  <widget type="textentry" version="3.0.0">
+    <name>inputfile</name>
+    <pv_name>loc://cccr$(DID)("")</pv_name>
+    <x>110</x>
+    <y>80</y>
+    <width>300</width>
+    <height>30</height>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_1</name>
+    <text>Select file</text>
+    <x>60</x>
+    <y>50</y>
+    <width>290</width>
+  </widget>
+  <widget type="action_button" version="3.0.0">
+    <name>cccrload</name>
+    <actions>
+      <action type="execute">
+        <script file="EmbeddedPy">
+          <text><![CDATA[from org.csstudio.display.builder.runtime.script import ScriptUtil, PVUtil, FileUtil
+
+_log = ScriptUtil.getLogger()
+
+w_localname = ScriptUtil.findWidgetByName(widget, "inputfile") # loc://...
+w_fname = ScriptUtil.findWidgetByName(widget, "cccrfile") # FDAS:CCCR:NAME
+# this widget connects to: FDAS:CCCR:BODY
+
+fname = PVUtil.getString(ScriptUtil.getPrimaryPV(w_localname))
+
+if fname:
+    _log.info('Load %s'%fname)
+    print('!Load', fname)
+    try:
+        CSV = FileUtil.readTextFile(fname, widget)
+        print('Read', len(CSV))
+        ScriptUtil.getPrimaryPV(w_fname).write(fname)
+        ScriptUtil.getPrimaryPV(widget).write(CSV)
+        _log.info('CSR process %s with %d bytes'%(fname, len(CSV)))
+    except Exception as e:
+        ScriptUtil.showErrorDialog(widget, str(e))
+        raise
+]]></text>
+        </script>
+        <description>Load</description>
+      </action>
+    </actions>
+    <pv_name>pva://$(P)CCCR:BODY</pv_name>
+    <x>420</x>
+    <y>80</y>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>cccrfile</name>
+    <pv_name>pva://$(P)CCCR:NAME</pv_name>
+    <x>110</x>
+    <y>160</y>
+    <width>300</width>
+    <height>30</height>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_1</name>
+    <pv_name>pva://$(P)CCCR:MSG</pv_name>
+    <x>110</x>
+    <y>210</y>
+    <width>740</width>
+    <height>100</height>
+  </widget>
+  <widget type="led" version="2.0.0">
+    <name>LED</name>
+    <pv_name>pva://$(P)CCCR:STS</pv_name>
+    <x>420</x>
+    <y>160</y>
+    <width>90</width>
+    <height>30</height>
+    <off_color>
+      <color name="MAJOR" red="255" green="0" blue="0">
+      </color>
+    </off_color>
+    <on_color>
+      <color name="OK" red="0" green="255" blue="0">
+      </color>
+    </on_color>
+    <square>true</square>
+    <labels_from_pv>true</labels_from_pv>
+  </widget>
+  <widget type="label" version="2.0.0">
+    <name>Label_2</name>
+    <text>Previous result</text>
+    <x>60</x>
+    <y>130</y>
+    <width>290</width>
+  </widget>
+  <widget type="led" version="2.0.0">
+    <name>LED_1</name>
+    <pv_name>pva://$(P)CCCR:BUSY</pv_name>
+    <x>530</x>
+    <y>80</y>
+    <width>90</width>
+    <height>30</height>
+    <on_color>
+      <color name="MINOR" red="255" green="128" blue="0">
+      </color>
+    </on_color>
+    <square>true</square>
+    <labels_from_pv>true</labels_from_pv>
+  </widget>
+</display>

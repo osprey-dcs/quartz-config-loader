@@ -1,3 +1,2 @@
-
-cccr_configurer/tests/input/Osprey Empty Chamber Parameters 2024-05-20-1830.csv
-cccr_configurer/tests/output/output.csv
+__pycache__/
+*.csv
