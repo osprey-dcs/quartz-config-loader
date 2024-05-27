@@ -7,6 +7,7 @@ import shutil
 import signal
 import sys
 import time
+import subprocess as SP
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -43,6 +44,7 @@ async def amain(args):
     pv_content.open('', severity=3)
     #pv_output = SharedPV(nt=NTScalar('s'), initial='')
     pv_message = SharedPV(nt=NTScalar('s'), initial='Startup')
+    pv_log = SharedPV(nt=NTScalar('s'), initial='Startup')
     pv_status = SharedPV(nt=NTEnum(), initial={
         'choices':['Error', 'Success'],
         'index': 1,
@@ -123,22 +125,33 @@ async def amain(args):
                     '--input', str(farch),
                     '--output', str(tdir), # will write output.csv
                 ]
+                if not args.doit:
+                    cmd.append('--sim')
                 _log.debug('Run: %r', cmd)
 
-                if args.doit:
-                    P=await asyncio.create_subprocess_exec(*cmd, pwd=Path(__file__).parent.parent)
+                pv_log.post('', timestamp=now-2e-9)
+
+                capture = tdir / 'log.txt'
+                with capture.open('w+') as OUT:
+                    P=await asyncio.create_subprocess_exec(*cmd,
+                                                            cwd=Path(__file__).parent.parent,
+                                                            stdout=OUT,
+                                                            stderr=SP.STDOUT)
                     try:
-                        with asyncio.timeout(30): # configurer.py has a much shorter internal timeout.  So this is paranoia...
+                        async with asyncio.timeout(30): # configurer.py has a much shorter internal timeout.  So this is paranoia...
                             await P.wait()
                     except asyncio.TimeoutError:
                         _log.error('Timeout running: %r', cmd)
                         P.terminate()
                         raise
                     else:
+                        OUT.seek(0)
+                        Log = OUT.read()
+                        pv_log.post(Log, timestamp=now)
+                        for L in Log.splitlines():
+                            _log.error(L.strip())
                         if P.returncode!=0:
                             raise RuntimeError(f'configurer error {P.returncode}')
-                else:
-                    _log.warning('Simulated run: %r', cmd)
 
                 # TODO: do something with output.csv
 
@@ -167,6 +180,7 @@ async def amain(args):
             #f'{args.prefix}CCCR:OUT': pv_output,
             f'{args.prefix}CCCR:MSG': pv_message,
             f'{args.prefix}CCCR:STS': pv_status,
+            f'{args.prefix}CCCR:LOG': pv_log,
             f'{args.prefix}CCCR:BUSY': pv_busy,
         }]):
         done = asyncio.Event()

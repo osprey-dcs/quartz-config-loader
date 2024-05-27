@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--Saved on 2024-05-25 14:52:33 by dev-->
+<!--Saved on 2024-05-27 11:36:46 by dev-->
 <display version="2.0.0">
   <name>CCCR</name>
   <macros>
@@ -135,5 +135,13 @@ if fname:
     </on_color>
     <square>true</square>
     <labels_from_pv>true</labels_from_pv>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>Text Update_2</name>
+    <pv_name>pva://$(P)CCCR:LOG</pv_name>
+    <x>110</x>
+    <y>320</y>
+    <width>1010</width>
+    <height>280</height>
   </widget>
 </display>

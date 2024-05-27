@@ -2,6 +2,8 @@ import argparse
 import csv
 import logging
 import os
+import sys
+import time
 
 from p4p.client.thread import Context
 
@@ -248,6 +250,11 @@ def get_input_arguments():
         required=False,
         help="Run in verbose mode",
     )
+    parser.add_argument(
+        "--sim",
+        action="store_true",
+        help="Do not actually change any PVs."
+    )
 
     return parser.parse_args()
 
@@ -483,6 +490,10 @@ for row in output_table:
     else:
         raise ValueError(f"Not among allowed values {row['USE']}")
 
+if args.sim:
+    time.sleep(5) # fake some actual work
+    logging.warning('Simulation')
+    sys.exit(0)
 
 for domain in records_dict:
     logging.debug(
