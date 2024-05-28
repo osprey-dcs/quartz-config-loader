@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--Saved on 2024-05-27 11:36:46 by dev-->
+<!--Saved on 2024-05-28 09:11:21 by dev-->
 <display version="2.0.0">
   <name>CCCR</name>
   <macros>
     <P>FDAS:</P>
   </macros>
+  <width>1070</width>
   <widget type="label" version="2.0.0">
     <name>Label</name>
     <class>TITLE</class>
@@ -84,7 +85,7 @@ if fname:
   <widget type="textupdate" version="2.0.0">
     <name>cccrfile</name>
     <pv_name>pva://$(P)CCCR:NAME</pv_name>
-    <x>110</x>
+    <x>60</x>
     <y>160</y>
     <width>300</width>
     <height>30</height>
@@ -92,15 +93,15 @@ if fname:
   <widget type="textupdate" version="2.0.0">
     <name>Text Update_1</name>
     <pv_name>pva://$(P)CCCR:MSG</pv_name>
-    <x>110</x>
+    <x>60</x>
     <y>210</y>
-    <width>740</width>
+    <width>1010</width>
     <height>100</height>
   </widget>
   <widget type="led" version="2.0.0">
     <name>LED</name>
     <pv_name>pva://$(P)CCCR:STS</pv_name>
-    <x>420</x>
+    <x>370</x>
     <y>160</y>
     <width>90</width>
     <height>30</height>
@@ -139,9 +140,17 @@ if fname:
   <widget type="textupdate" version="2.0.0">
     <name>Text Update_2</name>
     <pv_name>pva://$(P)CCCR:LOG</pv_name>
-    <x>110</x>
+    <x>60</x>
     <y>320</y>
     <width>1010</width>
     <height>280</height>
+  </widget>
+  <widget type="textupdate" version="2.0.0">
+    <name>cccrfile_1</name>
+    <pv_name>pva://$(P)CCCR:HASH</pv_name>
+    <x>470</x>
+    <y>160</y>
+    <width>600</width>
+    <height>30</height>
   </widget>
 </display>

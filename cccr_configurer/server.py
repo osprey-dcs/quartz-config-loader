@@ -42,6 +42,8 @@ async def amain(args):
     pv_fname.open('', severity=3)
     pv_content = SharedPV(nt=NTScalar('s'))
     pv_content.open('', severity=3)
+    pv_hash = SharedPV(nt=NTScalar('s'))
+    pv_hash.open('', severity=3)
     #pv_output = SharedPV(nt=NTScalar('s'), initial='')
     pv_message = SharedPV(nt=NTScalar('s'), initial='Startup')
     pv_log = SharedPV(nt=NTScalar('s'), initial='Startup')
@@ -156,6 +158,7 @@ async def amain(args):
                 # TODO: do something with output.csv
 
             pv_content.post(cont, timestamp=now, severity=0)
+            pv_hash.post(h256, timestamp=now, severity=0)
             pv_message.post('Success', timestamp=now, severity=0)
             pv_status.post(1, timestamp=now, severity=0)
             op.done() # notify of success
@@ -177,6 +180,7 @@ async def amain(args):
     with Server([{
             f'{args.prefix}CCCR:NAME': pv_fname,
             f'{args.prefix}CCCR:BODY': pv_content,
+            f'{args.prefix}CCCR:HASH': pv_hash,
             #f'{args.prefix}CCCR:OUT': pv_output,
             f'{args.prefix}CCCR:MSG': pv_message,
             f'{args.prefix}CCCR:STS': pv_status,
