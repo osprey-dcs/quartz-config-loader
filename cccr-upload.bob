@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--Saved on 2024-05-28 09:11:21 by dev-->
+<!--Saved on 2024-05-28 10:02:00 by atf-->
 <display version="2.0.0">
   <name>CCCR</name>
   <macros>
@@ -34,9 +34,9 @@
   <widget type="textentry" version="3.0.0">
     <name>inputfile</name>
     <pv_name>loc://cccr$(DID)("")</pv_name>
-    <x>110</x>
+    <x>330</x>
     <y>80</y>
-    <width>300</width>
+    <width>730</width>
     <height>30</height>
   </widget>
   <widget type="label" version="2.0.0">
@@ -65,8 +65,8 @@ if fname:
     _log.info('Load %s'%fname)
     print('!Load', fname)
     try:
-        CSV = FileUtil.readTextFile(fname, widget)
-        print('Read', len(CSV))
+        CSV = FileUtil.readTextFile(fname, widget) # list of lines
+        CSV = '\n'.join(CSV)
         ScriptUtil.getPrimaryPV(w_fname).write(fname)
         ScriptUtil.getPrimaryPV(widget).write(CSV)
         _log.info('CSR process %s with %d bytes'%(fname, len(CSV)))
@@ -79,7 +79,7 @@ if fname:
       </action>
     </actions>
     <pv_name>pva://$(P)CCCR:BODY</pv_name>
-    <x>420</x>
+    <x>210</x>
     <y>80</y>
   </widget>
   <widget type="textupdate" version="2.0.0">
@@ -87,24 +87,25 @@ if fname:
     <pv_name>pva://$(P)CCCR:NAME</pv_name>
     <x>60</x>
     <y>160</y>
-    <width>300</width>
+    <width>600</width>
     <height>30</height>
   </widget>
   <widget type="textupdate" version="2.0.0">
     <name>Text Update_1</name>
     <pv_name>pva://$(P)CCCR:MSG</pv_name>
     <x>60</x>
-    <y>210</y>
+    <y>250</y>
     <width>1010</width>
     <height>100</height>
+    <interactive>true</interactive>
   </widget>
   <widget type="led" version="2.0.0">
     <name>LED</name>
     <pv_name>pva://$(P)CCCR:STS</pv_name>
-    <x>370</x>
+    <x>670</x>
     <y>160</y>
-    <width>90</width>
-    <height>30</height>
+    <width>80</width>
+    <height>70</height>
     <off_color>
       <color name="MAJOR" red="255" green="0" blue="0">
       </color>
@@ -126,7 +127,7 @@ if fname:
   <widget type="led" version="2.0.0">
     <name>LED_1</name>
     <pv_name>pva://$(P)CCCR:BUSY</pv_name>
-    <x>530</x>
+    <x>110</x>
     <y>80</y>
     <width>90</width>
     <height>30</height>
@@ -141,15 +142,16 @@ if fname:
     <name>Text Update_2</name>
     <pv_name>pva://$(P)CCCR:LOG</pv_name>
     <x>60</x>
-    <y>320</y>
+    <y>360</y>
     <width>1010</width>
     <height>280</height>
+    <interactive>true</interactive>
   </widget>
   <widget type="textupdate" version="2.0.0">
     <name>cccrfile_1</name>
     <pv_name>pva://$(P)CCCR:HASH</pv_name>
-    <x>470</x>
-    <y>160</y>
+    <x>60</x>
+    <y>200</y>
     <width>600</width>
     <height>30</height>
   </widget>
