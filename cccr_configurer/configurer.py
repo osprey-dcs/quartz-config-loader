@@ -387,7 +387,7 @@ if args.verbose:
     )
     logging.info("Verbose output")
 else:
-    logging.basicConfig(format="%(levelname)s: %(message)s")
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
 logging.info(f"Arguments: {args.__dict__}")
 logging.debug(
@@ -457,6 +457,7 @@ with open(configuration["input_fp"], newline="") as configuration_csv:
                 row[key] = value
         output_table.append(row)
 
+logging.info('Found %d rows', len(output_table))
 
 # logging.info("Output table ({}): {}".format(type(output_table), output_table))
 
