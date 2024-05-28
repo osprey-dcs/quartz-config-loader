@@ -120,11 +120,14 @@ async def amain(args):
 
             with TemporaryDirectory() as tdir:
                 tdir = Path(tdir)
+                finput = tdir / 'input' / Path(fname).with_suffix('.csv').name
+                finput.parent.mkdir()
+                shutil.copy(farch, finput)
 
                 # TODO: pass in requesting user?
                 cmd = [
                     sys.executable, '-m', 'cccr_configurer.configurer',
-                    '--input', str(farch),
+                    '--input', str(finput),
                     '--output', str(tdir), # will write output.csv
                     '--prefix', args.prefix,
                 ]
