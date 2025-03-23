@@ -253,8 +253,8 @@ def convert_bytype(description: str, val, domain_type: str):
 
 
 def verify_input(description: str, val: str, valid_inputs: list) -> str:
-    """Verifies the given input data is within the valid input list, otherwise returns
-    default.
+    """Verifies the given input data is within the valid input list. Otherwise if it is 
+    blank, it returns 'default', else "INVALID_INPUT".
 
     Parameters
     description (str): User provided name to alert of value mismatch
@@ -265,8 +265,14 @@ def verify_input(description: str, val: str, valid_inputs: list) -> str:
     valid_value[0] (str): First matched valid input, or default valid input
     """
     # _log.debug(f"Verifying input for {description}")
-    valid_value = [option.lower() for option in valid_inputs if val == option.lower()]
-    return valid_value[0] if valid_value else valid_inputs[0]
+    valid_val = [option.lower() for option in valid_inputs if val == option.lower()]
+    if not val or val.strip() == "":
+        return_val = valid_inputs[0]
+    elif valid_val:
+        return_val = valid_val[0]
+    else:
+        return_val = "INVALID_INPUT"
+    return return_val
 
 
 def apply_input_switch(description: str, val: str, input_switch: dict) -> str:
@@ -281,10 +287,12 @@ def apply_input_switch(description: str, val: str, input_switch: dict) -> str:
     switched_val (str): Value switched from CSV standard to EPICS DB standard
     """
     # _log.debug(f"Applying input switch for {description}")
-    if val in list(input_switch.keys()):
+    if not val or val.strip() == "":
+        switched_val = input_switch["default"]
+    elif val in list(input_switch.keys()):
         switched_val = input_switch[val]
     else:
-        switched_val = input_switch["default"]
+        switched_val = "INVALID_INPUT"
     return switched_val
 
 
@@ -374,15 +382,16 @@ class Record:
 
     def process_val(self, description: str, value, domain: str):
         cfg_value = value
-        # _log.debug(
-        #     f"converting {description} ({domain}): {DOMAINS[domain]['type']}({value})"
-        # )
+        # _log.debug(f"converting {description} ({domain}): {DOMAINS[domain]['type']}({value})")
+
+        # if the value's domain has a list of valid inputs, verify input
         if "valid_input" in DOMAINS[domain]:
             cfg_value = verify_input(
                 description,
                 cfg_value,
                 DOMAINS[domain]["valid_input"],
             )
+        # if the value's domain requires an input switch, apply switch
         if "input_switch" in DOMAINS[domain]:
             cfg_value = apply_input_switch(
                 description,
@@ -390,11 +399,19 @@ class Record:
                 DOMAINS[domain]["input_switch"],
             )
 
+        if cfg_value == "INVALID_INPUT":
+            if "valid_input" in DOMAINS[domain]:
+                valid_inputs = DOMAINS[domain]["valid_input"]
+            elif "input_switch" in DOMAINS[domain]:
+                valid_inputs = DOMAINS[domain]["input_switch"]
+            raise ValueError(f'Invalid input ({value}) at {self.signal.name} "{description}".\n' + (f'Valid inputs: {valid_inputs}' if valid_inputs else ''))
+        
         cfg_value = convert_bytype(
             description=self.signal_cfg["DESC"] + f":{domain}",
             val=cfg_value,
             domain_type=DOMAINS[domain]["type"],
         )
+
 
         # _log.debug(f"new value: {cfg_value}")
         return cfg_value
@@ -492,9 +509,7 @@ def main():
             if rec.changed:
                 count_changed += 1
                 recs_changed.append(rec.rec_name)
-            # _log.debug(
-            #     f"{rec.rec_name}, {rec.old_value}, {rec.new_value}, {rec.changed}"
-            # )
+            # _log.debug(f"{rec.rec_name}, {rec.old_value}, {rec.new_value}, {rec.changed}")
 
     _log.info(f"Records changed: {count_changed}")
     # _log.debug(f"records changed: {recs_changed}")
