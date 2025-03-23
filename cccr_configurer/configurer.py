@@ -271,7 +271,7 @@ def verify_input(description: str, val: str, valid_inputs: list) -> str:
     elif valid_val:
         return_val = valid_val[0]
     else:
-        return_val = "INVALID_INPUT"
+        raise ValueError("Invalid input")
     return return_val
 
 
@@ -292,7 +292,7 @@ def apply_input_switch(description: str, val: str, input_switch: dict) -> str:
     elif val in list(input_switch.keys()):
         switched_val = input_switch[val]
     else:
-        switched_val = "INVALID_INPUT"
+        raise ValueError("Invalid input")
     return switched_val
 
 
@@ -384,27 +384,28 @@ class Record:
         cfg_value = value
         # _log.debug(f"converting {description} ({domain}): {DOMAINS[domain]['type']}({value})")
 
-        # if the value's domain has a list of valid inputs, verify input
-        if "valid_input" in DOMAINS[domain]:
-            cfg_value = verify_input(
-                description,
-                cfg_value,
-                DOMAINS[domain]["valid_input"],
-            )
-        # if the value's domain requires an input switch, apply switch
-        if "input_switch" in DOMAINS[domain]:
-            cfg_value = apply_input_switch(
-                description,
-                cfg_value,
-                DOMAINS[domain]["input_switch"],
-            )
+        try:
+            # if the value's domain has a list of valid inputs, verify input
+            if "valid_input" in DOMAINS[domain]:
+                cfg_value = verify_input(
+                    description,
+                    cfg_value,
+                    DOMAINS[domain]["valid_input"],
+                )
+            # if the value's domain requires an input switch, apply switch
+            if "input_switch" in DOMAINS[domain]:
+                cfg_value = apply_input_switch(
+                    description,
+                    cfg_value,
+                    DOMAINS[domain]["input_switch"],
+                )
 
-        if cfg_value == "INVALID_INPUT":
+        except ValueError as e:
             if "valid_input" in DOMAINS[domain]:
                 valid_inputs = DOMAINS[domain]["valid_input"]
             elif "input_switch" in DOMAINS[domain]:
                 valid_inputs = DOMAINS[domain]["input_switch"]
-            raise ValueError(f'Invalid input ({value}) at {self.signal.name} "{description}".\n' + (f'Valid inputs: {valid_inputs}' if valid_inputs else ''))
+            raise ValueError(f'{e} ({value}) at {self.signal.name} "{description}".\n' + (f'Valid inputs: {valid_inputs}' if valid_inputs else ''))
         
         cfg_value = convert_bytype(
             description=self.signal_cfg["DESC"] + f":{domain}",
