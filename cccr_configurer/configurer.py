@@ -527,8 +527,10 @@ def main():
         _log.info(f"Processing {d}")
         # _log.info(f"Processing {d}: {list(zip(rec_names,rec_vals))}")
         _log.debug("GET old values")
-        old_values = ctxt.get(rec_names)
+        old_values = ctxt.get(rec_names, throw=False)
         for rec, old_value in zip(recs, old_values):
+            if isinstance(old_value , Exception):
+                raise RuntimeError(f'Failed to get {rec.rec_name}')
             rec.old_value = old_value
 
         _log.debug("PUT config values")
