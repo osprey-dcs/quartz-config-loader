@@ -126,6 +126,7 @@ async def amain(args):
                     sys.executable, '-m', 'cccr_configurer.configurer',
                     '--input', str(farch),
                     '--output', str(tdir), # will write output.csv
+                    '--prefix', args.prefix,
                 ]
                 if not args.doit:
                     cmd.append('--sim')
