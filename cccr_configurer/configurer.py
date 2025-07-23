@@ -314,10 +314,7 @@ def convert_bytype(description: str, val, domain_type: str):
     to the list available
     """
     _log.debug(f"Converting {description}: {val} to {domain_type}")
-    if val is None or len(val) == 0:
-        # _log.debug("val is none")
-        return None
-    elif domain_type == "int":
+    if domain_type == "int":
         # _log.debug("val is int")
         return 0 if val.upper() == "NONE" else int(val)
     elif domain_type == "str":
@@ -332,7 +329,7 @@ def convert_bytype(description: str, val, domain_type: str):
             return "Yes"
         elif val.lower() == "no":
             return "No"
-    raise ValueError(f"Could not convert '{description}:{val}'")
+    raise ValueError(f"Could not convert {domain_type!r} {description!r}:{val!r}")
 
 
 def verify_input(description: str, val: str, valid_inputs: list) -> str:
