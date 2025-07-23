@@ -167,7 +167,7 @@ class PatternSettings:
             "COUPLING": {
                 "type": "str",  # EPICS:enum [AC, DC]
                 "valid_input": [ "AC", "DC", ],
-                "pattern": rp,
+                "pattern": f"{self.prefix}<CHASSIS>:ACQ:coupling:<CHANNEL>",
             },
             # Configuration Timestamp
             # CONFIGTIMEID str
