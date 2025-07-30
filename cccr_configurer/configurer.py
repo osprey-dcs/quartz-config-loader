@@ -500,10 +500,11 @@ def main():
                 if d == dom:
                     recs_bydomain[dom].append(r)
 
+    _log.debug(f"Filename %r", os.path.basename(configuration["filename"]))
+
     # Write records and their values to simulation output csv
     if args.sim:
         _log.warning("Simulation")
-        _log.debug(f"Filename {os.path.basename(configuration["filename"])}")
         if args.test:
             with open(f"{tests_path}/output/sim_output.csv", "w", newline="") as sim_output_fp:
                 writer = csv.writer(sim_output_fp)
@@ -517,7 +518,6 @@ def main():
     GET new values from EPICS records for output file."""
     ctxt = Context("pva")
 
-    _log.debug(f"Put filename {os.path.basename(configuration["filename"])}")
     ctxt.put(patterns.filename_record, os.path.basename(configuration["filename"]))
 
     count_changed = 0
