@@ -483,7 +483,7 @@ def main():
     _log.debug(f"Alarm pattern: {patterns.alarm_pattern}")
 
     """Open the input filepath, read it, convert the values, and append the new row
-    to the output file."""
+    to the list of signals."""
     _log.info("Converting values to accepted datatypes and format")
     with open(configuration["input_fp"], newline="") as configuration_csv:
         configuration_table = csv.DictReader(configuration_csv)
@@ -503,6 +503,7 @@ def main():
     # Write records and their values to simulation output csv
     if args.sim:
         _log.warning("Simulation")
+        _log.debug(f"Filename {os.path.basename(configuration["filename"])}")
         if args.test:
             with open(f"{tests_path}/output/sim_output.csv", "w", newline="") as sim_output_fp:
                 writer = csv.writer(sim_output_fp)
@@ -515,6 +516,10 @@ def main():
     """By domain, GET old values from EPICS records. PUT values to EPICS records.
     GET new values from EPICS records for output file."""
     ctxt = Context("pva")
+
+    _log.debug(f"Put filename {os.path.basename(configuration["filename"])}")
+    ctxt.put(patterns.filename_record, os.path.basename(configuration["filename"]))
+
     count_changed = 0
     recs_changed = []
     for d, recs in recs_bydomain.items():
